@@ -81,15 +81,15 @@ io.on('connection', socket => {
         } else {
             chats[chat].parties.push(uid)
         }
-        console.log(uid, chat)
-        console.log(chats)
+        //console.log(uid, chat)
+        //console.log(chats)
     })
 
     socket.on('message', msg => {
         const uid = cnntnInfo.getUid(socket.id)
         msg.origin = uid
-        console.log(msg)
-        console.log(chats)
+        //console.log(msg)
+        //console.log(chats)
         const parties = chats[msg.chat].parties
         if (parties.length == 2){
             let targetUid = parties[1-parties.findIndex(id => id == uid)]
@@ -99,7 +99,7 @@ io.on('connection', socket => {
             }
         }
         chats[msg.chat].messages.push(msg)
-        console.log(chats)
+        //console.log(chats)
     })
 
     /*

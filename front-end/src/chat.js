@@ -17,6 +17,14 @@ class Chat extends React.Component{
         this.socket = io('http://localhost:3030');
         this.socket.on('message', msg => {
             console.log(msg)
+            // message conversion
+            const newMsg = {origin: msg.origin, message: msg.message.data, time: new Date()}
+            const messages = this.state.messages
+            messages[msg.chat].push(newMsg)
+            console.log(messages)
+            this.setState({messages}, () => {
+                console.log(this.state)
+            })
         })
     }
 
@@ -152,8 +160,8 @@ class MessageArea extends React.Component {
 
     render(){
         //console.log(this.props.messages)
-        const msgs = this.props.messages.map( msg => {
-            return <Message data={msg}/>
+        const msgs = this.props.messages.map( (msg,i) => {
+            return <Message key={i} data={msg}/>
         })
         return (
             <div>
