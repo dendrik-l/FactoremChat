@@ -54,6 +54,7 @@ io.on('connection', socket => {
         const uid = credentials.user;
         cnntnInfo.addNewConnectionInfo(socket, uid);        
         console.info(`User ${uid} has connected on socket ${socket.id}.`)
+        //console.log('connection informations: ', cnntnInfo.getStatus())
     })
 
     /*
@@ -78,14 +79,14 @@ io.on('connection', socket => {
         const uid = cnntnInfo.getUid(socket.id)
         if (!(chat in chats)) {
             chats[chat] = {parties: [uid], messages: []}
-        } else {
+        } else if (chats[chat].parties.length == 1) {
             chats[chat].parties.push(uid)
         }
         //console.log(uid, chat)
         //console.log(chats)
     })
 
-    socket.on('message', msg => {
+    socket.on('message', (msg,ack) => {
         const uid = cnntnInfo.getUid(socket.id)
         msg.origin = uid
         //console.log(msg)
@@ -95,11 +96,12 @@ io.on('connection', socket => {
             let targetUid = parties[1-parties.findIndex(id => id == uid)]
             let targetSocket = cnntnInfo.getTargetSocket(targetUid)
             if (targetSocket != null){
+                //console.log(`from ${uid} to ${targetUid} for chat ${msg.chat}`)
                 targetSocket.emit('message', msg)
             }
         }
         chats[msg.chat].messages.push(msg)
-        //console.log(chats)
+        ack()
     })
 
     /*

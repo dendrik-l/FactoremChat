@@ -1,30 +1,41 @@
 import React from 'react';
 import io from 'socket.io-client';
+import ReactFileReader from 'react-file-reader';
+const filesize = require('file-size');
 
 
 class Chat extends React.Component{
 
     constructor(props){
         super(props);
-        this.state = {loggedIn: false, activeChats: [], messages: {}}
+        this.state = {user: null, loggedIn: false, activeChats: [], messages: {}, currentChat: null};
         this.handleLogin = this.handleLogin.bind(this);
         this.handleNewChat = this.handleNewChat.bind(this);        
         this.handleChatSelection = this.handleChatSelection.bind(this);
         this.handleNewMessage = this.handleNewMessage.bind(this);
     }
 
+    initState() {
+        this.setState({user: null, loggedIn: false, activeChats: [], messages: {}, currentChat: null}, () => {
+            console.log('State initialized')
+        })
+    }
+
     componentDidMount(){
-        this.socket = io('http://localhost:3030');
+        this.socket = io();
         this.socket.on('message', msg => {
-            console.log(msg)
+            //console.log(msg)
             // message conversion
-            const newMsg = {origin: msg.origin, message: msg.message.data, time: new Date()}
             const messages = this.state.messages
-            messages[msg.chat].push(newMsg)
-            console.log(messages)
+            messages[msg.chat].push(msg)
+            //console.log(messages)
             this.setState({messages}, () => {
-                console.log(this.state)
+                //console.log(this.state)
             })
+        })
+        this.socket.on('disconnect', reason => {
+            this.initState()
+            alert('connection lost, login again!')
         })
     }
 
@@ -47,20 +58,87 @@ class Chat extends React.Component{
     }
 
     handleNewMessage(message){
-        this.socket.emit('message', {
+        const msg = {
             origin: this.state.user,
             chat: this.state.currentChat,
+            time: new Date().toString(),
             message: {
                 metaData: {
                     type: 'text'
                 },
                 data: message
-            }})
-        const msg = {origin: this.state.user, message, time: new Date()}
+            }}
+        this.socket.emit('message', msg, () => {
+            console.log('One message sent')
+        })
         const msgs = this.state.messages
         msgs[this.state.currentChat].push(msg)
         this.setState({messages: msgs})
     }
+
+    handleUploadFile = files => {
+        console.log(files)
+        const data = files.base64
+        const file = files.fileList.item(0)
+        const fileMsg = {
+            origin: this.state.user,
+            chat: this.state.currentChat,
+            time: new Date().toString(),
+            message: {
+                metaData:{
+                    type: file.type,
+                    name: file.name,
+                    size: file.size,
+                    lastModified: file.lastModified
+                },
+                data
+            }
+        }
+        
+        this.socket.emit('message', fileMsg, () => {
+            console.log('One file sent')
+        })
+        const msgs = this.state.messages
+        msgs[this.state.currentChat].push(fileMsg)
+        this.setState({messages: msgs})
+    }
+
+    /*
+    handleUploadFile = files => {
+        const base64Arr = files.base64;
+        const fileList = files.fileList;
+        const fileMsgs = []
+        base64Arr.forEach((data,i) => {
+            let file = fileList.item(i)
+            fileMsgs.push({
+                origin: this.state.user,
+                chat: this.state.currentChat,
+                time: new Date().toString(),
+                message: {
+                    metaData:{
+                        type: file.type,
+                        name: file.name,
+                        size: file.size,
+                        lastModified: file.lastModified
+                    },
+                    data
+                }
+            })
+        })
+        
+        fileMsgs.forEach(msg => {
+            this.socket.emit('message', msg, () => {
+                console.log('One file sent')
+                this.setState((state, props) => {
+                    const msgs = state.messages
+                    msgs[state.currentChat].push(msg)
+                    return {messages: msgs}
+                })
+            })
+            
+        })
+    }
+    */
 
     render(){
         return (
@@ -75,6 +153,9 @@ class Chat extends React.Component{
                     ? <div>
                         <MessageArea messages={this.state.messages[this.state.currentChat]}/>
                         <MessageInput handleMessage={this.handleNewMessage}/>
+                        <ReactFileReader handleFiles={this.handleUploadFile} base64={true}>
+                            <button>Upload</button>
+                        </ReactFileReader>
                     </div>
                     : <p>No chat</p>
                     }
@@ -161,7 +242,7 @@ class MessageArea extends React.Component {
     render(){
         //console.log(this.props.messages)
         const msgs = this.props.messages.map( (msg,i) => {
-            return <Message key={i} data={msg}/>
+            return <Message key={i} message={msg}/>
         })
         return (
             <div>
@@ -204,10 +285,17 @@ class MessageInput extends React.Component {
 
 class Message extends React.Component {
     render() {
+        const message = this.props.message;
+        const toShow = (message.message.metaData.type === 'text')
+        ? message.message.data
+        : message.message.metaData.name + '  ' + filesize(message.message.metaData.size).human()
+        const origin = message.origin
+        const date = new Date(message.time)
+        const timeStamp = date.getHours() + ':' + date.getMinutes()
         return (
             <div>
-                <p><b>{this.props.data.origin}</b>: {this.props.data.message}</p>
-                <span>{this.props.data.time.getHours()}:{this.props.data.time.getMinutes()}</span>
+                <p><b>{origin}</b>: {toShow}</p>
+                <span>{timeStamp}</span>
             </div>
         )
     }
