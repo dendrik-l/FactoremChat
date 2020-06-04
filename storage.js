@@ -2,7 +2,7 @@ const MongoClient = require('mongodb').MongoClient;
 const assert = require('assert');
  
 // Connection URL
-const url = 'mongodb+srv://liu_rex:admin@cluster0-pc5e4.mongodb.net/?retryWrites=true&w=majority';
+const url = 'mongodb+srv://___:___@cluster0-pc5e4.mongodb.net/?retryWrites=true&w=majority';
 
 const dbName = 'chat'
 
