@@ -40,22 +40,28 @@ class Chat extends React.Component{
     }
 
     handleLogin(user) {
-        this.socket.emit('login',{user})
-        this.setState({loggedIn: !this.state.loggedIn, user})
-        console.log(this.state)
-        let activeChats, messages
-        let currentChat = null
-        this.socket.emit('get chat rooms', rooms => {
-            activeChats = rooms.map(element => element.chat)
-            if (!(activeChats.length === 0)) {
-                currentChat = activeChats[0]
+        this.socket.emit('login',{user}, res => {
+            if (res === 'okay'){
+                this.setState({loggedIn: !this.state.loggedIn, user})
+                console.log(this.state)
+                let activeChats, messages
+                let currentChat = null
+                this.socket.emit('get chat rooms', rooms => {
+                    activeChats = rooms.map(element => element.chat)
+                    if (!(activeChats.length === 0)) {
+                        currentChat = activeChats[0]
+                    }
+                    this.socket.emit('get chat history', activeChats, history => {
+                        messages = history
+                        console.log(messages, history)
+                        this.setState({activeChats,messages,currentChat})
+                    })
+                })   
+            } else{
+                alert('Login failed.')
             }
-            this.socket.emit('get chat history', activeChats, history => {
-                messages = history
-                console.log(messages, history)
-                this.setState({activeChats,messages,currentChat})
-            })
-        })        
+        })
+             
     }
 
     handleNewChat(chatName){

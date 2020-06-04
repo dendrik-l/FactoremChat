@@ -1,18 +1,13 @@
 const MongoClient = require('mongodb').MongoClient;
 const assert = require('assert');
- 
-// Connection URL
-const url = 'mongodb+srv://___:___@cluster0-pc5e4.mongodb.net/?retryWrites=true&w=majority';
-
-const dbName = 'chat'
 
 var db = {connected: false, db: null}
  
 // Use connect method to connect to the server
-const initDbConnection = () => {
-    MongoClient.connect(url, function(err, client) {
+const initDbConnection = (cnntnString, dbName) => {
+    MongoClient.connect(cnntnString, function(err, client) {
         assert.equal(null, err);
-        console.log("Connected successfully to server");
+        console.log("Connected successfully to MongoDB");
         db.connected = true
         db.db = client.db(dbName)
       });
@@ -33,8 +28,6 @@ const retrieveDocuments = async (collection, criterias, options) => {
         throw 'Database is not connected'
     }
     return await db.db.collection(collection).find(criterias, options).toArray()
-    //const history = await cursor.toArray()
-    //return history
 }
 
 module.exports = {initDbConnection, insertDocuments, retrieveDocuments}

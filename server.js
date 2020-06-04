@@ -2,6 +2,7 @@ const path = require('path')
 const http = require('http')
 const express = require('express')
 const assert = require('assert');
+require('dotenv').config()
 
 const authenticateJwt = require('./Authentication')
 const storage = require('./storage')
@@ -41,14 +42,22 @@ class ConnectionInformation {
     getStatus(){
         return [this.UidToSkt,this.SidToUid]
     }
+
+    isConnectedUser(uid){
+        return uid in this.UidToSkt
+    }
 }
 
 const handleLogin = (socket) => {
-    socket.on('login', credentials => {
+    socket.on('login', (credentials,ack) => {
         const uid = credentials.user;
+        if (cnntnInfo.isConnectedUser(uid)){
+            ack('Who are you')
+            return
+        }
         cnntnInfo.addNewConnectionInfo(socket, uid);        
         console.info(`User ${uid} has connected on socket ${socket.id}.`)
-        //console.log('connection informations: ', cnntnInfo.getStatus())
+        ack('okay')
     })
 }
 
@@ -111,7 +120,6 @@ const handleGetChatRooms = (socket) => {
         const options = {projection:{_id:0, chat:1}, sort:{chat:1}}
         const chatRooms = await storage.retrieveDocuments('chats', criterias, options)
         ack(chatRooms)
-        console.log(chatRooms)
     })
 }
 
@@ -125,8 +133,6 @@ const handleUserDisconnection = (socket) => {
 
 const registerIOOperations = () => {
     io.on('connection', socket => {
-        console.log('User connected')
-
         handleLogin(socket)
         handleMessage(socket)
         handleRegisterChat(socket)
@@ -138,9 +144,15 @@ const registerIOOperations = () => {
 const initilizeServer = () => {
     cnntnInfo = new ConnectionInformation()
     server.listen(3030, () => console.log('Messaging server running on port 3030'))
-    storage.initDbConnection()
+    storage.initDbConnection(dbCnntnString, db_name )
     registerIOOperations()
 }
+
+const db_url = process.env.DB_URL
+const db_user = process.env.DB_USER
+const db_pass = process.env.DB_PASS
+const db_name = process.env.DB_NAME
+const dbCnntnString = db_url.replace('{user}',db_user).replace('{pass}',db_pass)
 
 var cnntnInfo
 var chats = {}
