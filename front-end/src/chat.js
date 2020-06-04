@@ -42,6 +42,20 @@ class Chat extends React.Component{
     handleLogin(user) {
         this.socket.emit('login',{user})
         this.setState({loggedIn: !this.state.loggedIn, user})
+        console.log(this.state)
+        let activeChats, messages
+        let currentChat = null
+        this.socket.emit('get chat rooms', rooms => {
+            activeChats = rooms.map(element => element.chat)
+            if (!(activeChats.length === 0)) {
+                currentChat = activeChats[0]
+            }
+            this.socket.emit('get chat history', activeChats, history => {
+                messages = history
+                console.log(messages, history)
+                this.setState({activeChats,messages,currentChat})
+            })
+        })        
     }
 
     handleNewChat(chatName){
@@ -68,9 +82,7 @@ class Chat extends React.Component{
                 },
                 data: message
             }}
-        this.socket.emit('message', msg, () => {
-            console.log('One message sent')
-        })
+        this.socket.emit('message', msg)
         const msgs = this.state.messages
         msgs[this.state.currentChat].push(msg)
         this.setState({messages: msgs})
@@ -103,43 +115,6 @@ class Chat extends React.Component{
         this.setState({messages: msgs})
     }
 
-    /*
-    handleUploadFile = files => {
-        const base64Arr = files.base64;
-        const fileList = files.fileList;
-        const fileMsgs = []
-        base64Arr.forEach((data,i) => {
-            let file = fileList.item(i)
-            fileMsgs.push({
-                origin: this.state.user,
-                chat: this.state.currentChat,
-                time: new Date().toString(),
-                message: {
-                    metaData:{
-                        type: file.type,
-                        name: file.name,
-                        size: file.size,
-                        lastModified: file.lastModified
-                    },
-                    data
-                }
-            })
-        })
-        
-        fileMsgs.forEach(msg => {
-            this.socket.emit('message', msg, () => {
-                console.log('One file sent')
-                this.setState((state, props) => {
-                    const msgs = state.messages
-                    msgs[state.currentChat].push(msg)
-                    return {messages: msgs}
-                })
-            })
-            
-        })
-    }
-    */
-
     render(){
         return (
             <div>
@@ -148,16 +123,16 @@ class Chat extends React.Component{
                 : <div>
                     <UserInfo user={this.state.user}/>
                     <SingleInputForm title="New Chat: " handleSubmit={this.handleNewChat}/>
-                    <ChatList chats={this.state.activeChats} selected={this.state.currentChat} handleClick={this.handleChatSelection}/>
-                    {this.state.currentChat
+                    {(!(this.state.currentChat == null))
                     ? <div>
+                        <ChatList chats={this.state.activeChats} selected={this.state.currentChat} handleClick={this.handleChatSelection}/>
                         <MessageArea messages={this.state.messages[this.state.currentChat]}/>
                         <MessageInput handleMessage={this.handleNewMessage}/>
                         <ReactFileReader handleFiles={this.handleUploadFile} base64={true}>
                             <button>Upload</button>
                         </ReactFileReader>
                     </div>
-                    : <p>No chat</p>
+                    : <p>No active chat yet. Add a new chat first!</p>
                     }
                     
                 </div>                
@@ -240,7 +215,6 @@ class ChatList extends React.Component{
 class MessageArea extends React.Component {
 
     render(){
-        //console.log(this.props.messages)
         const msgs = this.props.messages.map( (msg,i) => {
             return <Message key={i} message={msg}/>
         })

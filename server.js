@@ -1,6 +1,8 @@
 const path = require('path')
 const http = require('http')
 const express = require('express')
+const assert = require('assert');
+
 const authenticateJwt = require('./Authentication')
 const storage = require('./storage')
 
@@ -41,93 +43,105 @@ class ConnectionInformation {
     }
 }
 
-const cnntnInfo = new ConnectionInformation()
-
-app.use(express.static(path.join(__dirname,'public')))
-
-server.listen(3030, () => console.log('Messaging server running on port 3030'))
-
-storage.initDbConnection()
-
-
-io.on('connection', socket => {
-    console.log('User connected')
-
+const handleLogin = (socket) => {
     socket.on('login', credentials => {
         const uid = credentials.user;
         cnntnInfo.addNewConnectionInfo(socket, uid);        
         console.info(`User ${uid} has connected on socket ${socket.id}.`)
         //console.log('connection informations: ', cnntnInfo.getStatus())
     })
+}
 
-    /*
-    socket.on('authenticate', jwt => {
-        if (!authenticateJwt(jwt)){
-            // connection is unidentified. Close the connection.
-            socket.disconnect()
-            return
-        }
-        const uid = extractUid(jwt)
-        cnntnInfo.addNewConnectionInfo(socket,uid)
-        console.info(`User ${uid} has connected on socket ${socket.id}.`)
-    })
-    */
-
-    socket.on('chat history', () => {
+const handleRetrieveHistory = (socket) => {
+    socket.on('get chat history', async (chats, ack) => {
         // TODO: Retrieve chat histories for user
-        //socket.emit('chat history', getChatHistory(1))
+        const uid = cnntnInfo.getUid(socket.id)
+        assert.notStrictEqual(uid, null)
+        const history = {}
+        chats.forEach(async (chat,i) => {
+            const criterias = {parties: uid, chat}
+            const options = {projection: {_id: 0, parties: 0}, sort: {time: 1}}
+            const temp = await storage.retrieveDocuments('messages', criterias, options)
+            history[chat] = temp
+            if (i == chats.length-1){
+                ack(history)
+            }
+        })
     })
-
+}
+const handleRegisterChat = (socket) => {
     socket.on('register chat', (user, chat) => {
         const uid = cnntnInfo.getUid(socket.id)
         if (!(chat in chats)) {
-            chats[chat] = {parties: [uid], messages: []}
+            chats[chat] = {parties: [uid]}
         } else if (chats[chat].parties.length == 1) {
             chats[chat].parties.push(uid)
+            const chatRoomInfo = {chat, parties: chats[chat].parties}
+            storage.insertDocuments('chats', [chatRoomInfo])
         }
-        //console.log(uid, chat)
-        //console.log(chats)
     })
+}
 
-    socket.on('message', (msg,ack) => {
+const handleMessage = (socket) => {
+    socket.on('message', msg => {
         const uid = cnntnInfo.getUid(socket.id)
         msg.origin = uid
-        //console.log(msg)
-        //console.log(chats)
+        try {
+            let temp = msg
+            temp.parties = chats[msg.chat].parties
+            storage.insertDocuments('messages', [temp])
+        } catch (error){
+            console.error(error)
+        }        
         const parties = chats[msg.chat].parties
         if (parties.length == 2){
             let targetUid = parties[1-parties.findIndex(id => id == uid)]
             let targetSocket = cnntnInfo.getTargetSocket(targetUid)
             if (targetSocket != null){
-                //console.log(`from ${uid} to ${targetUid} for chat ${msg.chat}`)
                 targetSocket.emit('message', msg)
             }
         }
-        chats[msg.chat].messages.push(msg)
-        ack()
     })
+}
 
-    /*
-    socket.on('message', msg => {
-        console.log(msg)
-        // TODO: get target uid from quotation id in the message
-        const targetUid = getTargetUid(msg)
-        const targetSocket = cnntnInfo.getTargetSocket(targetUid)
-        if (targetSocket != null){
-            targetSocket.emit('message', msg)
-        }
-        // TODO: store to mongodb
-        db.store(msg)
+const handleGetChatRooms = (socket) => {
+    socket.on('get chat rooms', async (ack) => {
+        const uid = cnntnInfo.getUid(socket.id)
+        const criterias = {parties: uid}
+        const options = {projection:{_id:0, chat:1}, sort:{chat:1}}
+        const chatRooms = await storage.retrieveDocuments('chats', criterias, options)
+        ack(chatRooms)
+        console.log(chatRooms)
     })
-    */
+}
 
+const handleUserDisconnection = (socket) => {
     socket.on('disconnect', reason => {
         const uid = cnntnInfo.handleDisconnectionInfo(socket)
         console.info(`User ${uid} has disconnected.`)
         //console.log('connection informations: ', cnntnInfo.getStatus())
     })
+}
 
-})
+const registerIOOperations = () => {
+    io.on('connection', socket => {
+        console.log('User connected')
 
-// Temp for dev only
-const chats = {}
+        handleLogin(socket)
+        handleMessage(socket)
+        handleRegisterChat(socket)
+        handleRetrieveHistory(socket)
+        handleUserDisconnection(socket)
+        handleGetChatRooms(socket)
+})}
+
+const initilizeServer = () => {
+    cnntnInfo = new ConnectionInformation()
+    server.listen(3030, () => console.log('Messaging server running on port 3030'))
+    storage.initDbConnection()
+    registerIOOperations()
+}
+
+var cnntnInfo
+var chats = {}
+initilizeServer()

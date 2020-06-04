@@ -5,9 +5,8 @@ const assert = require('assert');
 const url = 'mongodb+srv://liu_rex:admin@cluster0-pc5e4.mongodb.net/?retryWrites=true&w=majority';
 
 const dbName = 'chat'
-const collectionName = 'messages'
 
-var db = {connected: false, collection: null}
+var db = {connected: false, db: null}
  
 // Use connect method to connect to the server
 const initDbConnection = () => {
@@ -15,35 +14,27 @@ const initDbConnection = () => {
         assert.equal(null, err);
         console.log("Connected successfully to server");
         db.connected = true
-        db.collection = client.db(dbName).collection(collectionName)
+        db.db = client.db(dbName)
       });
 }
 
-const insertMessages = msgs => {
+const insertDocuments = (collection, documents) => {
     if (!(db.connected)) {
         throw 'Database is not connected'
     }
-    db.collection.insertMany(msgs, (error, result) => {
+    db.db.collection(collection).insertMany(documents, (error, result) => {
         assert.equal(error, null);
-        console.log(`${result.insertedCount} out of ${msgs.length} messages backed up`)
+        console.log(`${result.insertedCount}/${documents.length} documents for collection ${collection} backed up`)
     }) 
 }
 
-const retrieveHistory = async (criterias, options) => {
+const retrieveDocuments = async (collection, criterias, options) => {
     if (!(db.connected)) {
         throw 'Database is not connected'
     }
-    const results = await db.collection.find(criterias, options).toArray()
-    return results
+    return await db.db.collection(collection).find(criterias, options).toArray()
+    //const history = await cursor.toArray()
+    //return history
 }
 
-
-const getChatHistory = (userId) => {
-    return 'mock history'
-}
-
-const getQuotations = (userId) => {
-    return Array(5)
-}
-
-module.exports = {getChatHistory, getQuotations, initDbConnection, insertMessages, retrieveHistory}
+module.exports = {initDbConnection, insertDocuments, retrieveDocuments}
