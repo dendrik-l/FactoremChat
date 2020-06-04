@@ -2,7 +2,7 @@ const path = require('path')
 const http = require('http')
 const express = require('express')
 const authenticateJwt = require('./Authentication')
-const {getChatHistory, getQuotations} = require('./storage')
+const storage = require('./storage')
 
 const app = express()
 const server = http.createServer(app)
@@ -47,6 +47,9 @@ app.use(express.static(path.join(__dirname,'public')))
 
 server.listen(3030, () => console.log('Messaging server running on port 3030'))
 
+storage.initDbConnection()
+
+
 io.on('connection', socket => {
     console.log('User connected')
 
@@ -72,7 +75,7 @@ io.on('connection', socket => {
 
     socket.on('chat history', () => {
         // TODO: Retrieve chat histories for user
-        socket.emit('chat history', getChatHistory(1))
+        //socket.emit('chat history', getChatHistory(1))
     })
 
     socket.on('register chat', (user, chat) => {
